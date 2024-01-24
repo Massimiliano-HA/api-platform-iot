@@ -1,7 +1,9 @@
+const admin = require('firebase-admin');
+const serviceAccount = require('./serviceAccountKey.json');
+
 var SerialPort = require('serialport');
 var xbee_api = require('xbee-api');
 var C = xbee_api.constants;
-//var storage = require("./storage")
 require('dotenv').config()
 
 
@@ -38,6 +40,26 @@ serialport.on("open", function () {
     commandParameter: [],
   };
   xbeeAPI.builder.write(frame_obj);
+
+
+  // Récuperer les infos du capteur photon (mettre adc)
+  xbeeAPI.parser.on("data", function (frame) {
+
+    if (C.FRAME_TYPE.ZIGBEE_IO_DATA_SAMPLE_RX === frame.type) {
+      console.log("ZIGBEE_IO_DATA_SAMPLE_RX");
+      if (frame.analogSamples && frame.analogSamples.AD1 !== undefined) {
+        let valeurAD1 = frame.analogSamples.AD1;
+        console.log("Valeur du capteur AD1 (D1) :", valeurAD1);
+
+
+      } else {
+        console.log("Aucune valeur AD1 (D1) trouvée dans les échantillons analogiques.");
+      }
+    }
+
+  });
+
+
 
 });
 
