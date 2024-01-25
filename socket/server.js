@@ -1,6 +1,7 @@
 const { getUser } = require("./storage");
 const SerialPort = require("serialport");
 const xbee_api = require("xbee-api");
+var C = xbee_api.constants;
 const mqtt = require("mqtt");
 const dotenv = require("dotenv");
 
@@ -27,6 +28,7 @@ const serialport = new SerialPort(
 
 // Variables globales
 let valeurAD1;
+let valeurDIO3;
 let dataReceived;
 let user;
 const uid = "dru7DyoWEkTX17twZP9f49O18ED3";
@@ -96,6 +98,12 @@ function handleXBeeData(frame) {
   if (C.FRAME_TYPE.ZIGBEE_IO_DATA_SAMPLE_RX === frame.type) {
     handleAD1Value(frame);
   }
+
+  if (C.FRAME_TYPE.ZIGBEE_IO_DATA_SAMPLE_RX === frame.type) {
+    handleDIO3Value(frame);
+  }
+
+
 }
 
 // Gestion des paquets Zigbee Receive
@@ -109,6 +117,7 @@ function handleZigbeeReceivePacket(frame) {
 
   switch (dataReceived) {
     case "MOTION_DETECTED":
+      publishDataToTopic(client, "object", "Il y a quelqu'un !");
       if (user.alarmState) {
         console.log("Alarme activée");
         movedDetected = true;
@@ -136,17 +145,27 @@ function handleAD1Value(frame) {
       type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
       destination64: "FFFFFFFFFFFFFFFF",
       command: "D0",
-      commandParameter: valeurAD1 >= 40 && valeurAD1 <= 50 ? [0x05] : [0x04],
+      commandParameter: valeurAD1 >= 10 && valeurAD1 <= 70 ? [0x05] : [0x04],
     };
 
     console.log(
-      valeurAD1 >= 40 && valeurAD1 <= 50
+      valeurAD1 >= 20 && valeurAD1 <= 40
         ? "Rien à signaler !"
         : "Intrusion ! Lumière allumée !"
     );
     sendRemoteCommand(remoteCommand);
   }
+
 }
+
+// Gestion de la valeur D3
+function handleDIO3Value(frame) {
+  if (frame.digitalSamples && frame.digitalSamples.DIO3 !== undefined) {
+    valeurDIO3 = frame.digitalSamples.DIO3;
+    console.log("Valeur du capteur DIO3 (D3) :", valeurDIO3);
+  }
+}
+
 
 // Gestion des événements MQTT
 client.on("connect", handleMQTTConnect);
@@ -193,3 +212,5 @@ function publishDataToTopic(client, topic, message) {
 
 // Exemple d'utilisation de la fonction getUser
 user = getUser(uid);
+
+
