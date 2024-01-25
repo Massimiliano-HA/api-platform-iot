@@ -1,49 +1,65 @@
-const admin = require('firebase-admin');
-const serviceAccount = require('./serviceAccountKey.json');
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceAccountKey.json");
 
+// Initialiser l'application Firebase
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://homewave-45d37.firebaseio.com",
 });
 
-const db = admin.firestore();
+async function getUser(uid) {
+  try {
+    const firestore = admin.firestore();
+    const userRef = firestore.collection("users").doc(uid);
 
+    const userSnapshot = await userRef.get();
 
-module.exports.registerSensor = async function (address) {
-
-  const docRef = db.collection('sensors').doc(address);
-
-  const sensor = {
-    address: address,
-    date: Date.now(),
+    // Vérifier si le document existe dans Firestore
+    if (userSnapshot.exists) {
+      console.log("Utilisateur existant dans Firestore");
+      console.log(userSnapshot.data());
+      return userSnapshot.data();
+    } else {
+      console.log("Création en cours...");
+      return await createUser(uid);
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération de l'utilisateur:", error);
+    throw error;
   }
-
-  await docRef.get().then((snapshotDoc)=> {
-    if (!snapshotDoc.exists)
-      docRef.set(sensor);
-    else
-      docRef.update(sensor);
-  })
 }
 
-module.exports.registerSample = async function (address, sample) {
+// Créer un utilisateur dans Firestore
+async function createUser(uid) {
+  try {
+    const firestore = admin.firestore();
+    const userRef = firestore.collection("users").doc(uid);
 
-  const docRef = db.collection('sensors').doc(address)
-    .collection('samples').doc(Date.now().toString());
+    const userData = {
+      alarmState: true,
+      system: [
+        {
+          type: "digicode",
+          name: "codePin",
+          value: "0000",
+        },
+      ],
+      events: [
+        {
+          date: Date.now(),
+          type: "event",
+        },
+      ],
+    };
 
-  const data = {
-    value: sample,
-    date: Date.now(),
+    await userRef.set(userData);
+    return userData;
+  } catch (error) {
+    console.error("Erreur lors de la création de l'utilisateur:", error);
+    throw error;
   }
-  await docRef.set(data);
-
-
 }
 
-module.exports.listSensors = function () {
-
-  const docRef = db.collection('sensors');
-
-  return docRef.get()
-
-}
-
+module.exports = {
+  getUser,
+};
